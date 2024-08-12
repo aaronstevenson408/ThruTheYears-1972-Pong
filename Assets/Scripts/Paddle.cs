@@ -3,13 +3,16 @@ using UnityEngine.InputSystem;
 
 public class Paddle : MonoBehaviour
 {
-    public float speed = 10f;
+    public GameManager.Player player;
+
+    public float speed = 500f;
     public bool isLeftPlayer;
 
     private Rigidbody2D rb;
     private PaddleControls controls;
     private Vector2 moveInput;
-    private bool isCollidingWithWall = false;
+    private bool isCollidingWithTopWall = false;
+    private bool isCollidingWithBottomWall = false;
 
     private void Awake()
     {
@@ -51,14 +54,16 @@ public class Paddle : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (!isCollidingWithWall)
+        Vector2 movement = new Vector2(0, moveInput.y * speed * Time.fixedDeltaTime);
+
+        // Allow movement unless it's trying to move further into a wall
+        if ((isCollidingWithTopWall && movement.y > 0) || (isCollidingWithBottomWall && movement.y < 0))
         {
-            Vector2 movement = new Vector2(0, moveInput.y * speed * Time.fixedDeltaTime);
-            rb.velocity = new Vector2(0, movement.y); // Update velocity directly
+            rb.velocity = Vector2.zero; // Stop movement into the wall
         }
         else
         {
-            rb.velocity = Vector2.zero; // Stop movement if colliding with wall
+            rb.velocity = movement; // Apply normal movement
         }
 
         Debug.Log($"Paddle FixedUpdate: MoveInput = {moveInput}, Velocity = {rb.velocity}");
@@ -66,34 +71,52 @@ public class Paddle : MonoBehaviour
 
     void OnCollisionEnter2D(Collision2D collision)
     {
-        Debug.Log($"Paddle OnCollisionEnter2D: Collided with {collision.gameObject.name}, Tag = {collision.gameObject.tag}");
-
         if (collision.gameObject.CompareTag("Wall"))
         {
-            isCollidingWithWall = true;
-            // Optionally, set vertical velocity to zero or adjust as needed
-            rb.velocity = new Vector2(rb.velocity.x, 0);
-            Debug.Log("Paddle collided with wall. Stopping movement.");
+            if (collision.transform.position.y > transform.position.y)
+            {
+                isCollidingWithTopWall = true; // Paddle is colliding with the top wall
+            }
+            else
+            {
+                isCollidingWithBottomWall = true; // Paddle is colliding with the bottom wall
+            }
+
+            Debug.Log("Paddle collided with wall.");
         }
     }
 
     void OnCollisionStay2D(Collision2D collision)
     {
-        Debug.Log($"Paddle OnCollisionStay2D: Still colliding with {collision.gameObject.name}, Tag = {collision.gameObject.tag}");
-
         if (collision.gameObject.CompareTag("Wall"))
         {
-            isCollidingWithWall = true;
+            if (collision.transform.position.y > transform.position.y)
+            {
+                isCollidingWithTopWall = true; // Paddle is still colliding with the top wall
+            }
+            else
+            {
+                isCollidingWithBottomWall = true; // Paddle is still colliding with the bottom wall
+            }
+
+            Debug.Log("Paddle is still colliding with the wall.");
         }
     }
 
     void OnCollisionExit2D(Collision2D collision)
     {
-        Debug.Log($"Paddle OnCollisionExit2D: Stopped colliding with {collision.gameObject.name}, Tag = {collision.gameObject.tag}");
-
         if (collision.gameObject.CompareTag("Wall"))
         {
-            isCollidingWithWall = false;
+            if (collision.transform.position.y > transform.position.y)
+            {
+                isCollidingWithTopWall = false; // Paddle has stopped colliding with the top wall
+            }
+            else
+            {
+                isCollidingWithBottomWall = false; // Paddle has stopped colliding with the bottom wall
+            }
+
+            Debug.Log("Paddle stopped colliding with wall.");
         }
     }
 }

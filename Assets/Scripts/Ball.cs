@@ -2,26 +2,39 @@ using UnityEngine;
 
 public class Ball : MonoBehaviour
 {
-    public float speed = 5f;
+    public float initialSpeed = 5f;
     public float maxSpeed = 15f;
-    public float speedIncrease = 0.1f;
+    public float speedIncrease = 0.5f;
+    public int maxConsecutiveWallHits = 10;
+
+    [SerializeField] private float currentSpeed;
 
     private Rigidbody2D rb;
     private Vector2 lastVelocity;
+    private int consecutiveWallHits = 0;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        currentSpeed = initialSpeed;
         LaunchBall();
     }
 
-    void LaunchBall()
+    public void LaunchBall()  // Changed to public
     {
         transform.position = Vector2.zero;
-        float x = Random.Range(0, 2) == 0 ? -1 : 1;
-        float y = Random.Range(-0.5f, 0.5f);
-        Vector2 direction = new Vector2(x, y).normalized;
-        rb.velocity = direction * speed;
+        consecutiveWallHits = 0;
+        currentSpeed = initialSpeed;
+
+        Vector2 direction;
+        do
+        {
+            float x = Random.Range(0, 2) == 0 ? -1 : 1;
+            float y = Random.Range(-1f, 1f);
+            direction = new Vector2(x, y).normalized;
+        } while (Mathf.Abs(direction.x) < 0.2f || Mathf.Abs(direction.y) < 0.2f);
+
+        rb.velocity = direction * currentSpeed;
     }
 
     void Update()
@@ -29,30 +42,54 @@ public class Ball : MonoBehaviour
         lastVelocity = rb.velocity;
     }
 
-    void FixedUpdate()
-    {
-        rb.velocity = rb.velocity.normalized * speed;
-    }
-
     void OnCollisionEnter2D(Collision2D collision)
     {
-        speed = Mathf.Min(speed + speedIncrease, maxSpeed);
-
         if (collision.gameObject.CompareTag("Paddle"))
         {
-            float y = HitFactor(transform.position,
-                                collision.transform.position,
-                                collision.collider.bounds.size.y);
-
-            Vector2 dir = new Vector2(rb.velocity.x > 0 ? 1 : -1, y).normalized;
-            rb.velocity = dir * speed;
+            HandlePaddleCollision(collision);
         }
         else if (collision.gameObject.CompareTag("Wall"))
         {
-            var speed = lastVelocity.magnitude;
-            var direction = Vector2.Reflect(lastVelocity.normalized, collision.contacts[0].normal);
-            rb.velocity = direction * speed;
+            HandleWallCollision(collision);
         }
+    }
+
+    void HandlePaddleCollision(Collision2D collision)
+    {
+        consecutiveWallHits = 0;
+
+        currentSpeed = Mathf.Min(currentSpeed + speedIncrease, maxSpeed);
+
+        float y = HitFactor(transform.position,
+                            collision.transform.position,
+                            collision.collider.bounds.size.y);
+
+        float paddleX = collision.transform.position.x;
+        float screenCenterX = Camera.main.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, 0)).x;
+
+        float dirX = (paddleX < screenCenterX) ? 1 : -1;
+
+        Vector2 dir = new Vector2(dirX, y).normalized;
+        rb.velocity = dir * currentSpeed;
+
+        Debug.Log($"Paddle hit. New speed: {currentSpeed}");
+    }
+
+    void HandleWallCollision(Collision2D collision)
+    {
+        consecutiveWallHits++;
+        if (consecutiveWallHits >= maxConsecutiveWallHits)
+        {
+            LaunchBall();
+            return;
+        }
+
+        var direction = Vector2.Reflect(lastVelocity.normalized, collision.contacts[0].normal);
+
+        direction += new Vector2(Random.Range(-0.1f, 0.1f), Random.Range(-0.1f, 0.1f));
+        direction.Normalize();
+
+        rb.velocity = direction * currentSpeed;
     }
 
     float HitFactor(Vector2 ballPos, Vector2 paddlePos, float paddleHeight)

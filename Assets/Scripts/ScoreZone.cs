@@ -1,18 +1,31 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class ScoreZone : MonoBehaviour
 {
-    // Start is called before the first frame update
-    void Start()
-    {
-        
-    }
+    public GameManager.Player scoringPlayer;
 
-    // Update is called once per frame
-    void Update()
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        
+        if (other.CompareTag("Ball"))
+        {
+            if (scoringPlayer != null)
+            {
+                GameManager.Instance.AddScore(scoringPlayer);
+            }
+            else
+            {
+                Debug.LogError("Scoring player not set for this ScoreZone.");
+            }
+
+            Ball ball = other.GetComponent<Ball>();
+            if (ball != null)
+            {
+                ball.LaunchBall();
+            }
+            else
+            {
+                Debug.LogError("Ball component not found on the colliding object.");
+            }
+        }
     }
 }
